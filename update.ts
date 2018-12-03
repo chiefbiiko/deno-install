@@ -66,8 +66,8 @@ const release_url: Function = async (tag?: string) : Promise<string> => {
 
 const download: Function = async (url: string, bin: string) : Promise<void> => {
   const res: any = await follow(url) // TODO: annotate deno Response
-  // TODO: write res.arrayBuffer 2 bin
+  // TODO: write inflated res.arrayBuffer 2 bin
   
 }
 
-release_url().then(console.log)
+// release_url().then(console.log)
