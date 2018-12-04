@@ -1,5 +1,6 @@
-import { ErrorKind, env, exit, lstat, mkdir, platform } from 'deno'
+import { ErrorKind, env, exit, lstat, mkdir, platform, writeFile, run, makeTempDir } from 'deno'
 import mkdirp from 'https://raw.githubusercontent.com/chiefbiiko/deno-mkdirp/master/mkdirp.ts'
+// TODO: include pako manually
 
 const PATH_SEPARATOR: string = platform.os === 'win' ? '\\' : '/'
 
@@ -64,10 +65,24 @@ const release_url: Function = async (tag?: string) : Promise<string> => {
   return `https://github.com${match}`
 }
 
-const download: Function = async (url: string, bin: string) : Promise<void> => {
+const download: Function = async (url: string, zip: string) : Promise<string> => {
   const res: any = await follow(url) // TODO: annotate deno Response
-  // TODO: write inflated res.arrayBuffer 2 bin
-  
+  const temp_name: string = `${await makeTempDir()}/deno_xzip`
+  const deno_xzip: Uint8Array = new Uint8Array(await res.arrayBuffer())
+  await writeFile(temp_name, deno_xzip)
+  return temp_name
+}
+
+const unpack_deno_bin: Function = async (from: string, to: string) : Promise<string> => {
+  var args: string[]
+  if (platform.os === 'win') {
+    // get a reliable unzip tool from somewhere
+    args = [ '', from, ]
+  } else { // gunzip
+    
+  }
+  // await run()
+  return ''
 }
 
 // release_url().then(console.log)
