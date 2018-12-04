@@ -2,20 +2,25 @@ import {
   ErrorKind, 
   Process,
   ProcessStatus,
+  chmod,
   copyFile,
   env, 
   exit, 
   lstat, 
   mkdir, 
   platform, 
-  writeFile, 
+  symlink,
+  writeFile,
+  removeAll,
   run, 
   makeTempDir 
 } from 'deno'
 
 import mkdirp from 'https://raw.githubusercontent.com/chiefbiiko/deno-mkdirp/master/mkdirp.ts'
 
-const PATH_SEPARATOR: string = platform.os === 'win' ? '\\' : '/'
+const WIN32 = platform.os === 'win'
+
+const PATH_SEPARATOR: string = WIN32 ? '\\' : '/'
 
 const path_join: Function = function (...parts: string[]) : string {
   return parts.join(PATH_SEPARATOR)
@@ -24,7 +29,7 @@ const path_join: Function = function (...parts: string[]) : string {
 const proc_env: { [key:string]: any } = env()
 
 const get_home: Function = function () : string {
-  return platform.os === 'win' ? proc_env.HOMEPATH : proc_env.HOME
+  return WIN32 ? proc_env.HOMEPATH : proc_env.HOME
 }
 
 const DENO_REPO_URL: string = 'https://github.com/denoland/deno'
@@ -33,7 +38,10 @@ const TAG_RELEASE_URL: string = `${DENO_REPO_URL}/releases/tag`
 
 const DENO_DIR: string = path_join(get_home(), '.deno')
 const DENO_BIN_DIR: string = path_join(DENO_DIR, 'bin')
-const DENO_BIN: string = path_join(DENO_BIN_DIR, 'deno')
+const DENO_BIN: string = path_join(DENO_BIN_DIR, WIN32 ? 'deno.exe' : 'deno')
+const DENO_LINK: string = path_join(
+  WIN32 ? '' : '/usr/local/bin/deno', WIN32 ? 'deno.exe' : 'deno'
+)
 
 const LINUX_GZ: string = 'deno_linux_x64.gz'
 const OSX_GZ: string = 'deno_osx_x64.gz'
@@ -78,10 +86,10 @@ const release_url: Function = async (tag?: string) : Promise<string> => {
   return `https://github.com${match}`
 }
 
-const temp_download: Function = async (url: string) : Promise<string> => {
+const temp_download: Function = async (temp_dir: string, url: string) : Promise<string> => {
   const res: any = await follow(url) // TODO: annotate deno Response
   const arr_buf: ArrayBuffer = await res.arrayBuffer()
-  const temp_file: string = `${await makeTempDir()}/${Date.now()}`
+  const temp_file: string = `${temp_dir}/${Date.now()}`
   await writeFile(temp_file, new Uint8Array(arr_buf))
   return temp_file
 }
@@ -96,5 +104,15 @@ const unpack_deno_bin: Function = async (archive: string) : Promise<void> => {
     throw Error(`(g)unzip failed with code ${child_status.code}`)
   child.close()
 }
+
+const chmod_deno_dir: Function = async () : Promise<void> => {
+  await chmod(DENO_DIR, 0o744)
+}
+
+const symlink_deno_bin: Function = async () : Promise<void> => {
+  await symlink(DENO_BIN, DENO_LINK, WIN32 ? 'file' : undefined)
+}
+
+const main: Function = async () : Promise<void> => {}
 
 // release_url().then(console.log)
