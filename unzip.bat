@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d %~dp0
-Call :UnZipFile "C:\Users\nschwarz\Desktop\papaya\deno-update\deno" "C:\Users\nschwarz\Desktop\papaya\deno-update\deno_win_x64.zip"
+Call :UnZipFile %2 %1
 exit /b
 
 :UnZipFile <ExtractTo> <newzipfile>

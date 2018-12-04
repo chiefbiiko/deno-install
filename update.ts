@@ -1,6 +1,19 @@
-import { ErrorKind, env, exit, lstat, mkdir, platform, writeFile, run, makeTempDir } from 'deno'
+import { 
+  ErrorKind, 
+  Process,
+  ProcessStatus,
+  copyFile,
+  env, 
+  exit, 
+  lstat, 
+  mkdir, 
+  platform, 
+  writeFile, 
+  run, 
+  makeTempDir 
+} from 'deno'
+
 import mkdirp from 'https://raw.githubusercontent.com/chiefbiiko/deno-mkdirp/master/mkdirp.ts'
-// TODO: include pako manually
 
 const PATH_SEPARATOR: string = platform.os === 'win' ? '\\' : '/'
 
@@ -65,24 +78,23 @@ const release_url: Function = async (tag?: string) : Promise<string> => {
   return `https://github.com${match}`
 }
 
-const download: Function = async (url: string, zip: string) : Promise<string> => {
+const temp_download: Function = async (url: string) : Promise<string> => {
   const res: any = await follow(url) // TODO: annotate deno Response
-  const temp_name: string = `${await makeTempDir()}/deno_xzip`
-  const deno_xzip: Uint8Array = new Uint8Array(await res.arrayBuffer())
-  await writeFile(temp_name, deno_xzip)
-  return temp_name
+  const arr_buf: ArrayBuffer = await res.arrayBuffer()
+  const temp_file: string = `${await makeTempDir()}/${Date.now()}`
+  await writeFile(temp_file, new Uint8Array(arr_buf))
+  return temp_file
 }
 
-const unpack_deno_bin: Function = async (from: string, to: string) : Promise<string> => {
-  var args: string[]
-  if (platform.os === 'win') {
-    // get a reliable unzip tool from somewhere
-    args = [ '', from, ]
-  } else { // gunzip
-    
-  }
-  // await run()
-  return ''
+const unpack_deno_bin: Function = async (archive: string) : Promise<void> => {
+  await mkdirp(DENO_BIN_DIR)
+  const args: string[] = [ platform.os === 'win' ? 'unzip.bat' : 'gunzip' ]
+    .concat([ archive, DENO_BIN_DIR ])
+  const child: Process = run({ args })
+  const child_status: ProcessStatus = await child.status()
+  if (!child_status.success) 
+    throw Error(`(g)unzip failed with code ${child_status.code}`)
+  child.close()
 }
 
 // release_url().then(console.log)
