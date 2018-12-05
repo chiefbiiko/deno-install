@@ -22,10 +22,9 @@ import mkdirp from 'https://raw.githubusercontent.com/chiefbiiko/deno-mkdirp/mas
 const HELP: string = 'help yoself'
 
 const WIN32: boolean = platform.os === 'win'
-
 const PATH_SEPARATOR: string = WIN32 ? '\\' : '/'
 
-const path_join: Function = function (...parts: string[]) : string {
+const path_join: Function = (...parts: string[]) : string => {
   return parts.join(PATH_SEPARATOR)
 }
 
@@ -46,17 +45,17 @@ const DENO_LINK: string = path_join(
   WIN32 ? '' : '/usr/local/bin/deno', WIN32 ? 'deno.exe' : 'deno'
 )
 
-const LINUX_GZ: string = 'deno_linux_x64.gz'
-const OSX_GZ: string = 'deno_osx_x64.gz'
+const LINUX_GZIP: string = 'deno_linux_x64.gz'
+const OSX_GZIP: string = 'deno_osx_x64.gz'
 const WIN_ZIP: string = 'deno_win_x64.zip'
 
 const panic: Function = (err: Error) : void => {
-  if (err) console.error('[deno-self-installer error]', err.stack)
+  if (err) console.error('[deno-update error]', err.stack)
   exit(1)
 }
 
 const pinup: Function = (...args: any) : void => {
-  console.log('[deno-self-installer info]', ...args)
+  console.log('[deno-update info]', ...args)
 }
 
 const follow: Function = async (url: string) : Promise<any> => {
@@ -74,8 +73,8 @@ const release_url: Function = async (tag?: string) : Promise<string> => {
   const url: string = tag ? `${TAG_RELEASE_URL}/${tag}` : LATEST_RELEASE_URL
   var filename: string
   switch (platform.os) {
-    case 'linux': filename = LINUX_GZ; break
-    case 'mac': filename = OSX_GZ; break
+    case 'linux': filename = LINUX_GZIP; break
+    case 'mac': filename = OSX_GZIP; break
     case 'win': filename = WIN_ZIP; break
     default: throw Error(`unsupported OS ${platform.os}`)
   }
@@ -108,12 +107,21 @@ const unpack_deno_bin: Function = async (archive: string) : Promise<void> => {
   child.close()
 }
 
-const chmod_deno_dir: Function = async () : Promise<void> => {
+const mk_handy: Function = async () : Promise<void> => {
   await chmod(DENO_DIR, 0o744)
+  await symlink(DENO_BIN, DENO_LINK, WIN32 ? 'file' : undefined)
 }
 
-const symlink_deno_bin: Function = async () : Promise<void> => {
-  await symlink(DENO_BIN, DENO_LINK, WIN32 ? 'file' : undefined)
+const ck_deno: Function = async (expected_version: string) : Promise<void> => {
+  const deno_proc: Process = run({ args: [ 'deno', '--version' ] })
+  const deno_status: ProcessStatus = await deno_proc.status()
+  if (!deno_status.success) throw Error('update failed')
+  const deno_stdout: Uint8Array = new Uint8Array(32)
+  while ((await deno_proc.stdout.read(deno_stdout)).nread < 16);
+  deno_proc.close()
+  const output: string = new TextDecoder('utf-8').decode(deno_stdout)
+  if (!RegExp(expected_version.replace(/\./g, '\\.')).test(output))
+    throw Error('version mismatch')
 }
 
 const main: Function = async () : Promise<void> => {
@@ -124,14 +132,11 @@ const main: Function = async () : Promise<void> => {
   const temp_dir: string = await makeTempDir()
   console.log(`downloading ${url}`)
   const temp_file: string = await temp_download(temp_dir, url)
+  await unpack_deno_bin(temp_file)
   console.log('plugging up da binary')
-  await chmod_deno_dir()
-  await symlink_deno_bin()
-  const deno_proc: Process = run({ args: [ 'deno', '--version' ] })
-  const deno_status: ProcessStatus = await deno_proc.status()
-  // TODO: check deno_proc stdout 4 correct version
-  if (!deno_status.success) throw('updating deno failed')
-  else console.log(`updated deno to ${'VERSION'}`)
+  await mk_handy()
+  await ck_deno()
+  console.log(`update ok`)
 }
 
-// release_url().then(console.log)
+main()
