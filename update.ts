@@ -2,6 +2,7 @@ import {
   ErrorKind, 
   Process,
   ProcessStatus,
+  args,
   chmod,
   copyFile,
   env, 
@@ -18,7 +19,9 @@ import {
 
 import mkdirp from 'https://raw.githubusercontent.com/chiefbiiko/deno-mkdirp/master/mkdirp.ts'
 
-const WIN32 = platform.os === 'win'
+const HELP: string = 'help yoself'
+
+const WIN32: boolean = platform.os === 'win'
 
 const PATH_SEPARATOR: string = WIN32 ? '\\' : '/'
 
@@ -113,6 +116,22 @@ const symlink_deno_bin: Function = async () : Promise<void> => {
   await symlink(DENO_BIN, DENO_LINK, WIN32 ? 'file' : undefined)
 }
 
-const main: Function = async () : Promise<void> => {}
+const main: Function = async () : Promise<void> => {
+  if (args.some((arg: string) => /^(?:-h|--help)$/.test(arg))) 
+    return console.log(HELP)
+  console.log('updating deno@latest')
+  const url: string = await release_url(args[1])
+  const temp_dir: string = await makeTempDir()
+  console.log(`downloading ${url}`)
+  const temp_file: string = await temp_download(temp_dir, url)
+  console.log('plugging up da binary')
+  await chmod_deno_dir()
+  await symlink_deno_bin()
+  const deno_proc: Process = run({ args: [ 'deno', '--version' ] })
+  const deno_status: ProcessStatus = await deno_proc.status()
+  // TODO: check deno_proc stdout 4 correct version
+  if (!deno_status.success) throw('updating deno failed')
+  else console.log(`updated deno to ${'VERSION'}`)
+}
 
 // release_url().then(console.log)
