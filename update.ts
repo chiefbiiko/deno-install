@@ -8,7 +8,6 @@ import {
   env,
   exit,
   lstat,
-  mkdir,
   platform,
   symlink,
   writeFile,
@@ -30,7 +29,7 @@ const path_join: Function = (...parts: string[]) : string => {
 
 const proc_env: { [key:string]: any } = env()
 
-const get_home: Function = function () : string {
+const get_home: Function = () : string => {
   return WIN32 ? proc_env.HOMEPATH : proc_env.HOME
 }
 
@@ -41,7 +40,7 @@ const TAG_RELEASE_URL: string = `${DENO_REPO_URL}/releases/tag`
 const DENO_DIR: string = path_join(get_home(), '.deno')
 const DENO_BIN_DIR: string = path_join(DENO_DIR, 'bin')
 const DENO_BIN: string = path_join(DENO_BIN_DIR, WIN32 ? 'deno.exe' : 'deno')
-const DENO_LINK: string = path_join(
+const DENO_LINK: string = path_join( // TODO: find win path dir
   WIN32 ? '' : '/usr/local/bin', WIN32 ? 'deno.exe' : 'deno'
 )
 
@@ -51,6 +50,7 @@ const WIN_ZIP: string = 'deno_win_x64.zip'
 
 const panic: Function = (err: Error) : void => {
   if (err) console.error('[deno-update error]', err.stack)
+  console.error('[deno-update error]', 'update failed')
   exit(1)
 }
 
@@ -134,7 +134,7 @@ const ck_deno: Function = async (tag: string) : Promise<void> => {
     stdout: 'piped'
   })
   const deno_status: ProcessStatus = await deno_proc.status()
-  if (!deno_status.success) panic(Error('update failed'))
+  if (!deno_status.success) panic(Error('deno test run failed'))
   const deno_stdout: Uint8Array = new Uint8Array(32)
   while ((await deno_proc.stdout.read(deno_stdout)).nread < 16);
   deno_proc.close()
