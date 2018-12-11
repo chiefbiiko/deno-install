@@ -18,8 +18,6 @@ import {
 
 import mkdirp from 'https://raw.githubusercontent.com/chiefbiiko/deno-mkdirp/master/mkdirp.ts'
 
-const HELP: string = 'help yoself'
-
 const WIN32: boolean = platform.os === 'win'
 const PATH_SEPARATOR: string = WIN32 ? '\\' : '/'
 
@@ -144,8 +142,6 @@ const ck_deno: Function = async (tag: string) : Promise<void> => {
 }
 
 const main: Function = async () : Promise<void> => {
-  if (args.some((arg: string) => /^(?:-h|--help)$/.test(arg)))
-    return console.log(HELP)
   var tag: string
   if (/^v\d+\.\d+\.\d+$/.test(args[1])) tag = args[1]
   pinup(tag ? `updating 2 deno ${tag}` : 'updating 2 deno@latest')
