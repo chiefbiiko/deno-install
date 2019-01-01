@@ -5,6 +5,7 @@ import {
   args,
   chmod,
   copyFile,
+  cwd,
   env,
   exit,
   lstat,
@@ -17,29 +18,25 @@ import {
 } from 'deno'
 
 import mkdirp from 'https://raw.githubusercontent.com/chiefbiiko/deno-mkdirp/master/mkdirp.ts'
+import * as path from "https://deno.land/x/path/index.ts"
 
 const WIN32: boolean = platform.os === 'win'
-const PATH_SEPARATOR: string = WIN32 ? '\\' : '/'
-
-const path_join: Function = (...parts: string[]) : string => {
-  return parts.join(PATH_SEPARATOR)
-}
 
 const proc_env: { [key:string]: any } = env()
 
 const get_home: Function = () : string => {
-  return WIN32 ? proc_env.HOMEPATH : proc_env.HOME
+  return WIN32 ? path.win32.resolve('C:', proc_env.HOMEPATH) : proc_env.HOME
 }
 
 const DENO_REPO_URL: string = 'https://github.com/denoland/deno'
 const LATEST_RELEASE_URL: string = `${DENO_REPO_URL}/releases/latest`
 const TAG_RELEASE_URL: string = `${DENO_REPO_URL}/releases/tag`
 
-const DENO_DIR: string = path_join(get_home(), '.deno')
-const DENO_BIN_DIR: string = path_join(DENO_DIR, 'bin')
-const DENO_BIN: string = path_join(DENO_BIN_DIR, WIN32 ? 'deno.exe' : 'deno')
-const DENO_LINK: string = path_join( // TODO: find win path dir
-  WIN32 ? '' : '/usr/local/bin', WIN32 ? 'deno.exe' : 'deno'
+const DENO_DIR: string = path.join(get_home(), '.deno')
+const DENO_BIN_DIR: string = path.join(DENO_DIR, 'bin')
+const DENO_BIN: string = path.join(DENO_BIN_DIR, WIN32 ? 'deno.exe' : 'deno')
+const DENO_LINK: string = path.join( // TODO: find win path dir
+  WIN32 ? path.win32.resolve('C:', 'Windows', 'System32') : '/usr/local/bin', WIN32 ? 'deno.exe' : 'deno'
 )
 
 const LINUX_GZIP: string = 'deno_linux_x64.gz'
@@ -94,16 +91,24 @@ const temp_download: Function =
   async (temp_dir: string, url: string, suffix: string) : Promise<string> => {
   const res: any = await follow(url) // TODO: annotate deno Response
   const arr_buf: ArrayBuffer = await res.arrayBuffer()
-  const temp_file: string = `${temp_dir}/${Date.now()}.${suffix}`
+  const temp_file: string = path.join(temp_dir, `${Date.now()}.${suffix}`)
   await writeFile(temp_file, new Uint8Array(arr_buf))
   return temp_file
 }
 
 const unpack_deno_bin: Function = async (archive: string) : Promise<void> => {
-  await mkdirp(DENO_BIN_DIR)
-  let args: string[]
-  if (WIN32) args = [ 'unzip.bat', archive, DENO_BIN_DIR ]
-  else args = [ 'gunzip', '-d', archive ]
+  var args: string[]
+  await mkdirp(DENO_BIN_DIR)  
+  if (WIN32) {
+    // const unzip_bat: string = path.join(cwd(), 'unzip.bat')
+    const from: string = path.join(archive, 'deno.exe')
+    const to: string = path.join(DENO_BIN_DIR, 'deno.exe')
+    // args = [ `"${unzip_bat}"`, `"${archive}"`, `"${DENO_BIN_DIR}"` ]
+    args = [ 'copy', `"${from}"`, `"${to}"` ]
+    console.log('DEBUG', args)
+  } else {
+    args = [ 'gunzip', '-d', archive ]
+  }
   const child: Process = run({ args })
   const child_status: ProcessStatus = await child.status()
   if (!child_status.success)

@@ -1,3 +1,6 @@
+:: usage unzip.bat zip_file dest_dir
+:: args zip_file and dest_dir must be double-quoted absolute paths 
+
 @echo off
 setlocal
 cd /d %~dp0
