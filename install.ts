@@ -5,7 +5,6 @@ import {
   args,
   chmod,
   copyFile,
-  cwd,
   env,
   exit,
   lstat,
@@ -13,43 +12,43 @@ import {
   symlink,
   writeFile,
   removeAll,
+  rename,
   run,
   makeTempDir
 } from 'deno'
 
-import mkdirp from 'https://raw.githubusercontent.com/chiefbiiko/deno-mkdirp/master/mkdirp.ts'
-import * as path from "https://deno.land/x/path/index.ts"
+import { mkdirp } from 'https://deno.land/x/std/mkdirp/mkdirp.ts'
+import { join, win32 } from 'https://deno.land/x/path/index.ts'
 
 const WIN32: boolean = platform.os === 'win'
 
 const prep_wunzip: Function = async (temp_dir: string, zip_file: string, dest_dir: string) : Promise<string[]> => {
-  const script_file: string = path.join(temp_dir, 'wunzip.vbs')
-  const encoder: TextEncoder = new TextEncoder('utf-8')
-  const script_data: Uint8Array = encoder.encode(`
+  const script_file: string = join(temp_dir, 'wunzip.vbs')
+  const script_data: Uint8Array = new TextEncoder().encode(`
     set objShell = CreateObject("Shell.Application")
     set FilesInZip=objShell.NameSpace("${zip_file}").items
     objShell.NameSpace("${dest_dir}").CopyHere(FilesInZip)
     Set objShell = Nothing
   `.replace(/^ +/gm, '').trim())
   await writeFile(script_file, script_data)
-  return [ 'cscript', '//nologo', script_file ]
+  return [ 'cscript', '//nologo', '//b', script_file ]
 }
 
 const proc_env: { [key:string]: any } = env()
 
 const get_home: Function = () : string => {
-  return WIN32 ? path.win32.resolve('C:', proc_env.HOMEPATH) : proc_env.HOME
+  return WIN32 ? win32.resolve('C:', proc_env.HOMEPATH) : proc_env.HOME
 }
 
 const DENO_REPO_URL: string = 'https://github.com/denoland/deno'
 const LATEST_RELEASE_URL: string = `${DENO_REPO_URL}/releases/latest`
 const TAG_RELEASE_URL: string = `${DENO_REPO_URL}/releases/tag`
 
-const DENO_DIR: string = path.join(get_home(), '.deno')
-const DENO_BIN_DIR: string = path.join(DENO_DIR, 'bin')
-const DENO_BIN: string = path.join(DENO_BIN_DIR, WIN32 ? 'deno.exe' : 'deno')
-const DENO_LINK: string = path.join(
-  WIN32 ? path.win32.resolve('C:', 'Windows', 'System32') : '/usr/local/bin', WIN32 ? 'deno.exe' : 'deno'
+const DENO_DIR: string = join(get_home(), '.deno')
+const DENO_BIN_DIR: string = join(DENO_DIR, 'bin')
+const DENO_BIN: string = join(DENO_BIN_DIR, WIN32 ? 'deno.exe' : 'deno')
+const DENO_LINK: string = join(
+  WIN32 ? win32.resolve('C:', 'Windows', 'System32') : '/usr/local/bin', WIN32 ? 'deno.exe' : 'deno'
 )
 
 const LINUX_GZIP: string = 'deno_linux_x64.gz'
@@ -57,21 +56,21 @@ const OSX_GZIP: string = 'deno_osx_x64.gz'
 const WIN_ZIP: string = 'deno_win_x64.zip'
 
 const panic: Function = (err: Error) : void => {
-  if (err) console.error('[deno-update error]', err.stack)
-  console.error('[deno-update error]', 'update failed')
+  if (err) console.error('[deno-install error]', err.stack)
+  console.error('[deno-install error]', 'update failed')
   exit(1)
 }
 
 const pinup: Function = (...args: any) : void => {
-  console.log('[deno-update info]', ...args)
+  console.log('[deno-install info]', ...args)
 }
 
 const follow: Function = async (url: string) : Promise<any> => {
-  var located: boolean = false
-  var res: any // TODO: annotate deno Response
+  let located: boolean = false
+  let res: any // TODO: annotate deno Response
   while (!located) {
     res = await fetch(url)
-    if (String(res.status).startsWith('3')) url = res.headers.get('Location')
+    if (res.status >= 300 && res.status < 400) url = res.headers.get('Location')
     if (res.status === 200) located = true
   }
   return res
@@ -80,7 +79,7 @@ const follow: Function = async (url: string) : Promise<any> => {
 const release_url: Function = 
   async (tag?: string) : Promise<{ [key: string]: string }> => {
   const url: string = tag ? `${TAG_RELEASE_URL}/${tag}` : LATEST_RELEASE_URL
-  var filename: string
+  let filename: string
   switch (platform.os) {
     case 'linux': filename = LINUX_GZIP; break
     case 'mac': filename = OSX_GZIP; break
@@ -103,18 +102,17 @@ const release_url: Function =
 const temp_download: Function = 
   async (temp_dir: string, url: string, suffix: string) : Promise<string> => {
   const res: any = await follow(url) // TODO: annotate deno Response
-  const arr_buf: ArrayBuffer = await res.arrayBuffer()
-  const temp_file: string = path.join(temp_dir, `${Date.now()}.${suffix}`)
-  await writeFile(temp_file, new Uint8Array(arr_buf))
+  const temp_file: string = join(temp_dir, `${Date.now()}.${suffix}`)
+  await writeFile(temp_file, new Uint8Array(await res.arrayBuffer()))
   return temp_file
 }
 
 const unpack_deno_bin: Function = async (temp_dir: string, archive: string) : Promise<void> => {
-  var args: string[]
-  await mkdirp(DENO_BIN_DIR)  
+  let args: string[]
+  await mkdirp(DENO_BIN_DIR)
   if (WIN32) {
+    await rename(DENO_BIN, DENO_BIN.replace('deno.exe', 'old_deno.exe'))
     args = await prep_wunzip(temp_dir, archive, DENO_BIN_DIR)
-    console.log('DEBUG', args)
   } else {
     args = [ 'gunzip', '-d', archive ]
   }
@@ -151,15 +149,15 @@ const ck_deno: Function = async (tag: string) : Promise<void> => {
   const deno_stdout: Uint8Array = new Uint8Array(32)
   while ((await deno_proc.stdout.read(deno_stdout)).nread < 16);
   deno_proc.close()
-  const output: string = new TextDecoder('utf-8').decode(deno_stdout)
+  const output: string = new TextDecoder().decode(deno_stdout)
   if (!RegExp(tag.replace(/^v/, '').replace(/\./g, '\\.')).test(output))
     panic(Error('version mismatch'))
 }
 
 const main: Function = async () : Promise<void> => {
-  var tag: string
+  let tag: string
   if (/^v\d+\.\d+\.\d+$/.test(args[1])) tag = args[1]
-  pinup(tag ? `updating 2 deno ${tag}` : 'updating 2 deno@latest')
+  pinup(tag ? `installing deno ${tag}` : 'installing deno@latest')
   const actual: { [key: string]: string } = await release_url(tag)
   const temp_dir: string = await makeTempDir()
   pinup(`downloading ${actual.url}`)
@@ -170,7 +168,7 @@ const main: Function = async () : Promise<void> => {
   await mk_handy()
   await ck_deno(actual.tag)
   await removeAll(temp_dir)
-  pinup(`update ok`)
+  pinup(`successfully installed deno ${actual.tag}`)
 }
 
 main()
