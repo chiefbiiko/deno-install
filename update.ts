@@ -22,6 +22,19 @@ import * as path from "https://deno.land/x/path/index.ts"
 
 const WIN32: boolean = platform.os === 'win'
 
+const prep_wunzip: Function = async (temp_dir: string, zip_file: string, dest_dir: string) : Promise<string[]> => {
+  const script_file: string = path.join(temp_dir, 'wunzip.vbs')
+  const encoder: TextEncoder = new TextEncoder('utf-8')
+  const script_data: Uint8Array = encoder.encode(`
+    set objShell = CreateObject("Shell.Application")
+    set FilesInZip=objShell.NameSpace("${zip_file}").items
+    objShell.NameSpace("${dest_dir}").CopyHere(FilesInZip)
+    Set objShell = Nothing
+  `.replace(/^ +/gm, '').trim())
+  await writeFile(script_file, script_data)
+  return [ 'cscript', '//nologo', script_file ]
+}
+
 const proc_env: { [key:string]: any } = env()
 
 const get_home: Function = () : string => {
@@ -35,7 +48,7 @@ const TAG_RELEASE_URL: string = `${DENO_REPO_URL}/releases/tag`
 const DENO_DIR: string = path.join(get_home(), '.deno')
 const DENO_BIN_DIR: string = path.join(DENO_DIR, 'bin')
 const DENO_BIN: string = path.join(DENO_BIN_DIR, WIN32 ? 'deno.exe' : 'deno')
-const DENO_LINK: string = path.join( // TODO: find win path dir
+const DENO_LINK: string = path.join(
   WIN32 ? path.win32.resolve('C:', 'Windows', 'System32') : '/usr/local/bin', WIN32 ? 'deno.exe' : 'deno'
 )
 
@@ -96,15 +109,11 @@ const temp_download: Function =
   return temp_file
 }
 
-const unpack_deno_bin: Function = async (archive: string) : Promise<void> => {
+const unpack_deno_bin: Function = async (temp_dir: string, archive: string) : Promise<void> => {
   var args: string[]
   await mkdirp(DENO_BIN_DIR)  
   if (WIN32) {
-    // const unzip_bat: string = path.join(cwd(), 'unzip.bat')
-    const from: string = path.join(archive, 'deno.exe')
-    const to: string = path.join(DENO_BIN_DIR, 'deno.exe')
-    // args = [ `"${unzip_bat}"`, `"${archive}"`, `"${DENO_BIN_DIR}"` ]
-    args = [ 'copy', `"${from}"`, `"${to}"` ]
+    args = await prep_wunzip(temp_dir, archive, DENO_BIN_DIR)
     console.log('DEBUG', args)
   } else {
     args = [ 'gunzip', '-d', archive ]
@@ -127,6 +136,7 @@ const mk_handy: Function = async () : Promise<void> => {
     await lstat(DENO_LINK)
   } catch (err) {
     if (err.kind !== ErrorKind.NotFound) panic(err)
+    if (WIN32) return // workaround NOT_IMPLEMENTED error
     await symlink(DENO_BIN, DENO_LINK, WIN32 ? 'file' : undefined)
   }
 }
@@ -155,7 +165,7 @@ const main: Function = async () : Promise<void> => {
   pinup(`downloading ${actual.url}`)
   const temp_file: string = 
     await temp_download(temp_dir, actual.url, WIN32 ? 'zip' : 'gz')
-  await unpack_deno_bin(temp_file)
+  await unpack_deno_bin(temp_dir, temp_file)
   pinup('plugging up da binary')
   await mk_handy()
   await ck_deno(actual.tag)
