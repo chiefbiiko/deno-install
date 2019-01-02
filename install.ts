@@ -47,6 +47,7 @@ const TAG_RELEASE_URL: string = `${DENO_REPO_URL}/releases/tag`
 const DENO_DIR: string = join(get_home(), '.deno')
 const DENO_BIN_DIR: string = join(DENO_DIR, 'bin')
 const DENO_BIN: string = join(DENO_BIN_DIR, WIN32 ? 'deno.exe' : 'deno')
+const OLD_DENO_BIN: string = DENO_BIN.replace(/deno(\.exe)?$/, 'old_deno$1')
 const DENO_LINK: string = join(
   WIN32 ? win32.resolve('C:', 'Windows', 'System32') : '/usr/local/bin', WIN32 ? 'deno.exe' : 'deno'
 )
@@ -68,10 +69,12 @@ const pinup: Function = (...args: any) : void => {
 const follow: Function = async (url: string) : Promise<any> => {
   let located: boolean = false
   let res: any // TODO: annotate deno Response
+  let count: number = 0
   while (!located) {
+    if (++count === 4) throw Error(`unable to fetch from ${url}`)
     res = await fetch(url)
     if (res.status >= 300 && res.status < 400) url = res.headers.get('Location')
-    if (res.status === 200) located = true
+    else if (res.status === 200) located = true
   }
   return res
 }
@@ -111,7 +114,7 @@ const unpack_deno_bin: Function = async (temp_dir: string, archive: string) : Pr
   let args: string[]
   await mkdirp(DENO_BIN_DIR)
   if (WIN32) {
-    await rename(DENO_BIN, DENO_BIN.replace('deno.exe', 'old_deno.exe'))
+    await rename(DENO_BIN, OLD_DENO_BIN)
     args = await prep_wunzip(temp_dir, archive, DENO_BIN_DIR)
   } else {
     args = [ 'gunzip', '-d', archive ]
@@ -122,6 +125,7 @@ const unpack_deno_bin: Function = async (temp_dir: string, archive: string) : Pr
     panic(Error(`(g)unzip failed with code ${child_status.code}`))
   if (!WIN32) {
     const gunzipd: string = archive.replace(/\.gz$/, '')
+    if (platform.os === 'linux') await rename(DENO_BIN, OLD_DENO_BIN)
     await copyFile(gunzipd, DENO_BIN)
   }
   child.close()
