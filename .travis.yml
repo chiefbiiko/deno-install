@@ -4,4 +4,4 @@ os:
 # install deno v0.2.0
 before_script: curl -s https://raw.githubusercontent.com/chiefbiiko/deno-bash-installer/master/install.sh | sudo bash -s 0.2.0
 # run da test, travis requires sudo when writing
-script: chmod -R 744 ~/.deno && deno --allow-write --allow-net --allow-env --allow-run ./install.ts
+script: sudo chmod -R 744 ~/.deno && deno --allow-write --allow-net --allow-env --allow-run ./install.ts
