@@ -22,26 +22,23 @@ import { join, win32 } from "https://deno.land/x/path/index.ts";
 
 const WIN32: boolean = platform.os === "win";
 
-const proc_env: { [key: string]: any } = env();
+const procEnv: { [key: string]: any } = env();
 
-function get_home(): string {
+function getHome(): string {
   return WIN32
-    ? win32.resolve(proc_env.HOMEDRIVE, proc_env.HOMEPATH)
-    : proc_env.HOME;
+    ? win32.resolve(procEnv.HOMEDRIVE, procEnv.HOMEPATH)
+    : procEnv.HOME;
 }
 
 const DENO_REPO_URL: string = "https://github.com/denoland/deno";
 const LATEST_RELEASE_URL: string = `${DENO_REPO_URL}/releases/latest`;
 const TAG_RELEASE_URL: string = `${DENO_REPO_URL}/releases/tag`;
 
-const DENO_DIR: string = join(get_home(), ".deno");
+const DENO_DIR: string = join(getHome(), ".deno");
 const DENO_BIN_DIR: string = join(DENO_DIR, "bin");
 const DENO_BIN: string = join(DENO_BIN_DIR, WIN32 ? "deno.exe" : "deno");
 const OLD_DENO_BIN: string = DENO_BIN.replace(/deno(\.exe)?$/, "old_deno$1");
-const DENO_LINK: string = join(
-  WIN32 ? win32.resolve(proc_env.SystemRoot, "System32") : "/usr/local/bin",
-  WIN32 ? "deno.exe" : "deno"
-);
+const DENO_LINK: string = "/usr/local/bin/deno";
 
 const LINUX_GZIP: string = "deno_linux_x64.gz";
 const OSX_GZIP: string = "deno_osx_x64.gz";
@@ -49,7 +46,7 @@ const WIN_ZIP: string = "deno_win_x64.zip";
 
 function panic(err: Error): void {
   if (err) console.error("[deno-install error]", err.stack);
-  console.error("[deno-install error]", "installation failed");
+  console.error("[deno-install error]", "Installation failed");
   exit(1);
 }
 
@@ -62,7 +59,7 @@ async function follow(url: string): Promise<any> {
   let res: any; // TODO: annotate deno Response
   let count: number = 0;
   while (!located) {
-    if (++count === 4) throw Error(`unable to fetch from ${url}`);
+    if (++count === 4) throw Error(`Unable to fetch from ${url}`);
     res = await fetch(url);
     if (res.status >= 300 && res.status < 400)
       url = res.headers.get("Location");
@@ -71,7 +68,7 @@ async function follow(url: string): Promise<any> {
   return res;
 }
 
-async function release_url(tag?: string): Promise<{ [key: string]: string }> {
+async function releaseUrl(tag?: string): Promise<{ [key: string]: string }> {
   const url: string = tag ? `${TAG_RELEASE_URL}/${tag}` : LATEST_RELEASE_URL;
   let filename: string;
   switch (platform.os) {
@@ -85,34 +82,34 @@ async function release_url(tag?: string): Promise<{ [key: string]: string }> {
       filename = WIN_ZIP;
       break;
     default:
-      throw Error(`unsupported OS ${platform.os}`);
+      throw Error(`Unsupported operating system ${platform.os}`);
   }
   const res: any = await follow(url); // TODO: annotate deno Response
   const link: string = (await res.text())
     .split(/\r?\n/)
     .find((line: string) => line.includes("href") && line.includes(filename));
-  if (!link) panic(Error(`unable to find ${filename} @ ${url}`));
+  if (!link) panic(Error(`Unable to find ${filename} @ ${url}`));
   const match: string = link.replace(/^.*href=(?:"|')([^"']*)(?:"|').*$/, "$1");
   if (!/^\/denoland/.test(match))
-    panic(Error(`unable to find ${filename} @ ${url}`));
+    panic(Error(`Unable to find ${filename} @ ${url}`));
   return {
     url: `https://github.com${match}`,
     tag: match.replace(/^.*(v\d+\.\d+\.\d+).*$/, "$1")
   };
 }
 
-async function temp_download(
-  temp_dir: string,
+async function tempDownload(
+  tempDir: string,
   url: string,
   suffix: string
 ): Promise<string> {
   const res: any = await follow(url); // TODO: annotate deno Response
-  const temp_file: string = join(temp_dir, `${Date.now()}.${suffix}`);
-  await writeFile(temp_file, new Uint8Array(await res.arrayBuffer()));
-  return temp_file;
+  const tempFile: string = join(tempDir, `${Date.now()}.${suffix}`);
+  await writeFile(tempFile, new Uint8Array(await res.arrayBuffer()));
+  return tempFile;
 }
 
-async function unpack_bin(archive: string): Promise<void> {
+async function unpackBin(archive: string): Promise<void> {
   await mkdirp(DENO_BIN_DIR);
   let args: string[];
   if (WIN32) {
@@ -126,9 +123,9 @@ async function unpack_bin(archive: string): Promise<void> {
     args = ["gunzip", "-d", archive];
   }
   const child: Process = run({ args });
-  const child_status: ProcessStatus = await child.status();
-  if (!child_status.success)
-    panic(Error(`(g)unzip failed. ${args} -> ${child_status.code}`));
+  const childStatus: ProcessStatus = await child.status();
+  if (!childStatus.success)
+    panic(Error(`(g)unzip failed. ${args} -> ${childStatus.code}`));
   child.close();
   if (!WIN32) {
     if (platform.os === "linux") await rename(DENO_BIN, OLD_DENO_BIN);
@@ -136,28 +133,25 @@ async function unpack_bin(archive: string): Promise<void> {
   }
 }
 
-async function make_handy(): Promise<void> {
+async function makeHandy(): Promise<void> {
   if (WIN32) {
-    if (!proc_env.Path.includes(DENO_BIN_DIR)) {
-      console.log("bouta edit the PATH environment variable");
-      const upd_path: string = `${proc_env.Path};${DENO_BIN_DIR}`;
-      let args: string[] = [
+    if (!procEnv.Path.includes(DENO_BIN_DIR)) {
+      const upd_path: string = `${procEnv.Path};${DENO_BIN_DIR}`;
+      const args: string[] = [
         "powershell.exe",
         "-Command",
         `[Environment]::SetEnvironmentVariable("PATH","${upd_path}",` +
           `[EnvironmentVariableTarget]::User)`
       ];
-      let ps: Process = run({ args });
-      let ps_status: ProcessStatus = await ps.status();
-      if (!ps_status.success)
-        panic(Error(`unable to edit PATH. ${args} -> ${ps_status.code}`));
+      const ps: Process = run({ args });
+      const psStatus: ProcessStatus = await ps.status();
+      if (!psStatus.success)
+        panic(Error(`Unable to edit PATH. ${args} -> ${psStatus.code}`));
       ps.close();
-      args = ["powershell.exe", "-Command", `$env:PATH = "${upd_path}"`];
-      ps = run({ args });
-      ps_status = await ps.status();
-      if (!ps_status.success)
-        panic(Error(`unable to edit PATH. ${args} -> ${ps_status.code}`));
-      ps.close();
+      pinup(
+        `Just added ${DENO_BIN_DIR} to your PATH. Start a fresh shell ` +
+          `session to have "deno" available on the command line.`
+      );
     }
   } else {
     await chmod(DENO_DIR, 0o744);
@@ -171,39 +165,38 @@ async function make_handy(): Promise<void> {
   }
 }
 
-async function check_version(tag: string): Promise<void> {
-  const deno_proc: Process = run({
+async function checkVersion(tag: string): Promise<void> {
+  const denoProc: Process = run({
     args: ["deno", "--version"],
     stdout: "piped"
   });
-  const deno_status: ProcessStatus = await deno_proc.status();
-  if (!deno_status.success) panic(Error("deno test run failed"));
-  const deno_stdout: Uint8Array = new Uint8Array(32);
-  while ((await deno_proc.stdout.read(deno_stdout)).nread < 16);
-  deno_proc.close();
-  const output: string = new TextDecoder().decode(deno_stdout);
+  const denoStatus: ProcessStatus = await denoProc.status();
+  if (!denoStatus.success) panic(Error("Test run failed"));
+  const denoStdout: Uint8Array = new Uint8Array(32);
+  while ((await denoProc.stdout.read(denoStdout)).nread < 16);
+  denoProc.close();
+  const output: string = new TextDecoder().decode(denoStdout);
   if (!RegExp(tag.replace(/^v/, "").replace(/\./g, "\\.")).test(output))
-    panic(Error("version mismatch"));
+    panic(Error("Version mismatch"));
 }
 
 async function main(): Promise<void> {
   let tag: string;
   if (/^v\d+\.\d+\.\d+$/.test(args[1])) tag = args[1];
-  pinup(tag ? `installing deno ${tag}` : "installing deno@latest");
-  const actual: { [key: string]: string } = await release_url(tag);
-  const temp_dir: string = await makeTempDir();
-  pinup(`downloading ${actual.url}`);
-  const temp_file: string = await temp_download(
-    temp_dir,
+  pinup(tag ? `Installing deno ${tag}` : "Installing deno@latest");
+  const actual: { [key: string]: string } = await releaseUrl(tag);
+  const tempDir: string = await makeTempDir();
+  pinup(`Downloading ${actual.url}`);
+  const tempFile: string = await tempDownload(
+    tempDir,
     actual.url,
     WIN32 ? "zip" : "gz"
   );
-  await unpack_bin(temp_file);
-  pinup("plugging up da binary");
-  await make_handy();
-  await check_version(actual.tag);
-  await removeAll(temp_dir);
-  pinup(`successfully installed deno ${actual.tag}`);
+  await unpackBin(tempFile);
+  await makeHandy();
+  await checkVersion(actual.tag);
+  await removeAll(tempDir);
+  pinup(`Successfully installed deno ${actual.tag}`);
 }
 
 main();

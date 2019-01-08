@@ -1,29 +1,8 @@
-environment:
-  matrix:
-    - TYPE: deno
-    - TYPE: denonotpath
-
 build: off
 
-for:
-  - matrix:
-      only: 
-        - TYPE: deno
-    install:
-        - ps: iex (iwr https://deno.land/x/install/install.ps1)
-    test_script:
-      - deno --allow-write --allow-net --allow-env --allow-run install.ts v0.2.0
-      - deno --help
-  - matrix:
-      only: 
-        - TYPE: denonotpath
-    install:
-      - ps: $path = $env:PATH
-      - ps: iex (iwr https://deno.land/x/install/install.ps1)
-    test_script:
-      - set PATH=%SystemRoot%\System32\WindowsPowerShell\v1.0
-      - cd "%HOMEDRIVE%%HOMEPATH%\.deno\bin"
-      - deno.exe --allow-write --allow-net --allow-env --allow-run C:\projects\deno-install\install.ts v0.2.0
-      - cd "%HOMEDRIVE%%HOMEPATH%"
-      - deno --help
-      
+install:
+  - ps: iex (iwr https://deno.land/x/install/install.ps1)
+
+test_script:
+  - deno --allow-write --allow-net --allow-env --allow-run install.ts v0.2.0
+  - deno --help
