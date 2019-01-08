@@ -139,15 +139,22 @@ async function unpack_bin(archive: string): Promise<void> {
 async function make_handy(): Promise<void> {
   if (WIN32) {
     if (!proc_env.Path.includes(DENO_BIN_DIR)) {
+      console.log("bouta edit the PATH environment variable");
       const upd_path: string = `${proc_env.Path};${DENO_BIN_DIR}`;
-      const args: string[] = [
+      let args: string[] = [
         "powershell.exe",
         "-Command",
         `[Environment]::SetEnvironmentVariable("PATH","${upd_path}",` +
           `[EnvironmentVariableTarget]::User)`
       ];
-      const ps: Process = run({ args });
-      const ps_status: ProcessStatus = await ps.status();
+      let ps: Process = run({ args });
+      let ps_status: ProcessStatus = await ps.status();
+      if (!ps_status.success)
+        panic(Error(`unable to edit PATH. ${args} -> ${ps_status.code}`));
+      ps.close();
+      args = ["powershell.exe", "-Command", `$env:PATH = "${upd_path}"`];
+      ps = run({ args });
+      ps_status = await ps.status();
       if (!ps_status.success)
         panic(Error(`unable to edit PATH. ${args} -> ${ps_status.code}`));
       ps.close();
