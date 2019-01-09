@@ -40,7 +40,7 @@ const DENO_BIN_DIR: string = join(DENO_DIR, "bin");
 const DENO_BIN: string = join(DENO_BIN_DIR, WIN32 ? "deno.exe" : "deno");
 const OLD_DENO_BIN: string = DENO_BIN.replace(/deno(\.exe)?$/, "old_deno$1");
 const DENO_LINK: string = "/usr/local/bin/deno";
-const BASH_PROFILE: string = "~/.bash_profile"
+const BASH_PROFILE: string = "~/.bash_profile";
 const LINUX_GZIP: string = "deno_linux_x64.gz";
 const OSX_GZIP: string = "deno_osx_x64.gz";
 const WIN_ZIP: string = "deno_win_x64.zip";
@@ -138,7 +138,6 @@ async function makeHandy(): Promise<void> {
   const updatedPath: string = `${procEnv.Path};${DENO_BIN_DIR}`;
   if (WIN32) {
     if (!procEnv.Path.toLocaleLowerCase().includes(DENO_BIN_DIR)) {
-      // const updatedPath: string = `${procEnv.Path};${DENO_BIN_DIR}`;
       const args: string[] = [
         "powershell.exe",
         "-Command",
@@ -150,34 +149,20 @@ async function makeHandy(): Promise<void> {
       if (!psStatus.success)
         panic(Error(`Unable to edit PATH. ${args} -> ${psStatus.code}`));
       ps.close();
-      // pinup(
-      //   `Just added ${DENO_BIN_DIR} to your PATH. Start a fresh shell ` +
-      //     `session to have "deno" available on the command line.`
-      // );
     }
   } else {
     await chmod(DENO_DIR, 0o744);
     await chmod(DENO_BIN, 0o744);
-    // if (!procEnv.Path.toLocaleLowerCase().includes(DENO_BIN_DIR)) {
-    //   // const updatedPath: string = `${procEnv.Path};${DENO_BIN_DIR}`;
-    //   // const args: string[] = [
-    //   //   "powershell.exe",
-    //   //   "-Command",
-    //   //   `[Environment]::SetEnvironmentVariable("PATH","${updatedPath}",` +
-    //   //     `[EnvironmentVariableTarget]::User)`
-    //   // ];
-    //   let bashProfile: string = new TextDecoder().decode(await readFile(BASH_PROFILE))
-    //   if (!/PATH=[^\n]+.deno\/bin/.test(bashProfile)) {
-    //     bashProfile = `${bashProfile}\nPATH=$PATH:${DENO_BIN_DIR}\n`
-    //     if (!/export PATH/.test(bashProfile)) bashProfile += "\nexport PATH\n"
-    //     await writeFile(BASH_PROFILE, new TextEncoder().encode(bashProfile))
-    //   }
-    //   // const ps: Process = run({ args });
-    //   // const psStatus: ProcessStatus = await ps.status();
-    //   // if (!psStatus.success)
-    //   //   panic(Error(`Unable to edit PATH. ${args} -> ${psStatus.code}`));
-    //   // ps.close();
-    // }
+    if (!procEnv.Path.toLocaleLowerCase().includes(DENO_BIN_DIR)) {
+      let bashProfile: string = new TextDecoder().decode(
+        await readFile(BASH_PROFILE)
+      );
+      if (!/PATH=[^\n]+.deno\/bin/.test(bashProfile)) {
+        bashProfile = `${bashProfile}\nPATH=$PATH:${DENO_BIN_DIR}\n`;
+        if (!/export PATH/.test(bashProfile)) bashProfile += "\nexport PATH\n";
+        await writeFile(BASH_PROFILE, new TextEncoder().encode(bashProfile));
+      }
+    }
   }
 }
 
