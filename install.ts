@@ -135,9 +135,11 @@ async function unpackBin(archive: string): Promise<void> {
 }
 
 async function makeHandy(): Promise<void> {
-  const updatedPath: string = `${procEnv.Path};${DENO_BIN_DIR}`;
   if (WIN32) {
     if (!procEnv.Path.toLocaleLowerCase().includes(DENO_BIN_DIR)) {
+      let updatedPath: string = procEnv.Path;
+      if (procEnv.Path.endsWith(";")) updatedPath += DENO_BIN_DIR;
+      else updatedPath += `;${DENO_BIN_DIR}`;
       const args: string[] = [
         "powershell.exe",
         "-Command",
