@@ -135,14 +135,14 @@ async function unpackBin(archive: string): Promise<void> {
 }
 
 async function makeHandy(): Promise<void> {
-  const upd_path: string = `${procEnv.Path};${DENO_BIN_DIR}`;
+  const updatedPath: string = `${procEnv.Path};${DENO_BIN_DIR}`;
   if (WIN32) {
     if (!procEnv.Path.toLocaleLowerCase().includes(DENO_BIN_DIR)) {
-      // const upd_path: string = `${procEnv.Path};${DENO_BIN_DIR}`;
+      // const updatedPath: string = `${procEnv.Path};${DENO_BIN_DIR}`;
       const args: string[] = [
         "powershell.exe",
         "-Command",
-        `[Environment]::SetEnvironmentVariable("PATH","${upd_path}",` +
+        `[Environment]::SetEnvironmentVariable("PATH","${updatedPath}",` +
           `[EnvironmentVariableTarget]::User)`
       ];
       const ps: Process = run({ args });
@@ -158,26 +158,26 @@ async function makeHandy(): Promise<void> {
   } else {
     await chmod(DENO_DIR, 0o744);
     await chmod(DENO_BIN, 0o744);
-    if (!procEnv.Path.toLocaleLowerCase().includes(DENO_BIN_DIR)) {
-      // const upd_path: string = `${procEnv.Path};${DENO_BIN_DIR}`;
-      // const args: string[] = [
-      //   "powershell.exe",
-      //   "-Command",
-      //   `[Environment]::SetEnvironmentVariable("PATH","${upd_path}",` +
-      //     `[EnvironmentVariableTarget]::User)`
-      // ];
-      let bashProfile: string = new TextDecoder().decode(await readFile(BASH_PROFILE))
-      if (!/PATH=[^\n]+.deno\/bin/.test(bashProfile)) {
-        bashProfile = `${bashProfile}\nPATH=$PATH:${DENO_BIN_DIR}\n`
-        if (!/export PATH/.test(bashProfile)) bashProfile += "\nexport PATH\n"
-        await writeFile(BASH_PROFILE, new TextEncoder().encode(bashProfile))
-      }
-      // const ps: Process = run({ args });
-      // const psStatus: ProcessStatus = await ps.status();
-      // if (!psStatus.success)
-      //   panic(Error(`Unable to edit PATH. ${args} -> ${psStatus.code}`));
-      // ps.close();
-    }
+    // if (!procEnv.Path.toLocaleLowerCase().includes(DENO_BIN_DIR)) {
+    //   // const updatedPath: string = `${procEnv.Path};${DENO_BIN_DIR}`;
+    //   // const args: string[] = [
+    //   //   "powershell.exe",
+    //   //   "-Command",
+    //   //   `[Environment]::SetEnvironmentVariable("PATH","${updatedPath}",` +
+    //   //     `[EnvironmentVariableTarget]::User)`
+    //   // ];
+    //   let bashProfile: string = new TextDecoder().decode(await readFile(BASH_PROFILE))
+    //   if (!/PATH=[^\n]+.deno\/bin/.test(bashProfile)) {
+    //     bashProfile = `${bashProfile}\nPATH=$PATH:${DENO_BIN_DIR}\n`
+    //     if (!/export PATH/.test(bashProfile)) bashProfile += "\nexport PATH\n"
+    //     await writeFile(BASH_PROFILE, new TextEncoder().encode(bashProfile))
+    //   }
+    //   // const ps: Process = run({ args });
+    //   // const psStatus: ProcessStatus = await ps.status();
+    //   // if (!psStatus.success)
+    //   //   panic(Error(`Unable to edit PATH. ${args} -> ${psStatus.code}`));
+    //   // ps.close();
+    // }
   }
 }
 
