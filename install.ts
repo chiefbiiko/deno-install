@@ -8,7 +8,7 @@ import {
   env,
   exit,
   lstat,
-  platform,
+  build,
   symlink,
   writeFile,
   readFile,
@@ -21,7 +21,7 @@ import {
 import { mkdirp } from "https://deno.land/x/std/mkdirp/mkdirp.ts";
 import { join, win32 } from "https://deno.land/x/path/index.ts";
 
-const WIN32: boolean = platform.os === "win";
+const WIN32: boolean = build.os === "win";
 
 const procEnv: { [key: string]: any } = env();
 
@@ -72,7 +72,7 @@ async function follow(url: string): Promise<any> {
 async function releaseUrl(tag?: string): Promise<{ [key: string]: string }> {
   const url: string = tag ? `${TAG_RELEASE_URL}/${tag}` : LATEST_RELEASE_URL;
   let filename: string;
-  switch (platform.os) {
+  switch (build.os) {
     case "linux":
       filename = LINUX_GZIP;
       break;
@@ -83,7 +83,7 @@ async function releaseUrl(tag?: string): Promise<{ [key: string]: string }> {
       filename = WIN_ZIP;
       break;
     default:
-      throw Error(`Unsupported operating system ${platform.os}`);
+      throw Error(`Unsupported operating system ${build.os}`);
   }
   const res: any = await follow(url); // TODO: annotate deno Response
   const link: string = (await res.text())
@@ -129,7 +129,7 @@ async function unpackBin(archive: string): Promise<void> {
     panic(Error(`(g)unzip failed. ${args} -> ${childStatus.code}`));
   child.close();
   if (!WIN32) {
-    if (platform.os === "linux") await rename(DENO_BIN, OLD_DENO_BIN);
+    if (build.os === "linux") await rename(DENO_BIN, OLD_DENO_BIN);
     await copyFile(archive.replace(/\.gz$/, ""), DENO_BIN);
   }
 }
