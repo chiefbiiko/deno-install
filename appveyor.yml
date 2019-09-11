@@ -1,8 +1,0 @@
-build: off
-
-install:
-  - ps: iex (iwr https://deno.land/x/install/install.ps1)
-
-test_script:
-  - deno --allow-write --allow-net --allow-env --allow-run install.ts v0.2.0
-  - deno --help
